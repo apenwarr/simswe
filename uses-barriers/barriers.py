@@ -5,9 +5,15 @@ import sys
 
 MARKET_SIZE = 10000
 GROWTH_RATE = 0.20
-N_FEATURES = 10
-N_NEEDS = 20
 
+PICK_FEATURES = 3
+N_FEATURES = 10
+
+PICK_NEEDS = 10
+N_NEEDS = 20
+EXTRA_NEEDS = N_NEEDS - PICK_NEEDS
+
+SIM_STEPS = 500
 
 class Person(object):
     __slots__ = ['wants', 'needs', 'aware']
@@ -27,13 +33,7 @@ class Person(object):
         return self.interested(features) and not self.blocked(unblocked)
 
 
-def blockless():
-    for i in range(N_NEEDS):
-        # yield((1<<i, 0xffffffff))
-        yield((1, 1<<i))
-
-
-def strategy(impl):
+def stratgen(impl):
     features = 0
     unblocked = 0
     for features_added, unblocked_added in impl:
@@ -42,8 +42,7 @@ def strategy(impl):
         for _ in range(20):
             yield features, unblocked
 
-    # continue for a while to show pattern
-    for i in range(100):
+    while 1:
         yield features, unblocked
 
 
@@ -54,25 +53,20 @@ def randbits(n, total):
     return o
 
 
-def main():
+def simulate(w, name, strategy):
     # for repeatability
     random.seed(1)
-    
-    w = csv.writer(sys.stdout)
-    w.writerow([
-        't', 'features', 'unblocked',
-        'interested', 'satisfiable', 'users',
-    ])
 
     market = []
     for _ in range(MARKET_SIZE):
-        need = randbits(10, N_NEEDS)
-        want = randbits(3, N_FEATURES)
+        need = randbits(PICK_NEEDS, N_NEEDS)
+        want = randbits(PICK_FEATURES, N_FEATURES)
         market.append(Person(want, need))
     
     inactive = set(market)
     active = set()
-    for t, (features, unblocked) in enumerate(strategy(blockless())):
+    cumu = 0
+    for t, (features, unblocked) in enumerate(stratgen(strategy)):
         nf = bin(features).count('1')
         nu = bin(unblocked).count('1')
         interested = [p for p in inactive if p.interested(features)]
@@ -84,7 +78,7 @@ def main():
         newly_aware = len(active) * GROWTH_RATE
         if newly_aware < 10:
             newly_aware = 10  # founder sales :)
-        newly_aware_prob = newly_aware / (len(active) + len(interested))
+        newly_aware_prob = newly_aware / (len(active) + len(interested) + 1)
         # The GROWTH_RATE is spread among all interested users, including
         # ones that were already aware or active. This makes awareness
         # growth slow down as the population gets more saturated, as we
@@ -102,17 +96,84 @@ def main():
             if p.aware and random.random() < 0.2:
                 new_active.add(p)
 
+        val = len(active) + len(new_active)
+        cumu += val
         w.writerow([
-            t, nf, nu,
+            name, t, nf, nu,
             len(active) + len(interested),
             len(active) + len(satisfiable),
-            len(active) + len(new_active),
+            val,
+            cumu,
         ])
+        sys.stdout.flush()
 
         active.update(new_active)
         inactive -= new_active
-        if not inactive:
+        
+        if t == SIM_STEPS:
             break
+
+
+def base_needs():
+    o = 0
+    for i in range(EXTRA_NEEDS, N_NEEDS):
+        o |= 1 << i
+    return o
+
+
+def nonblocked():
+    for i in range(N_FEATURES):
+        yield((1<<i, 0xffffffff))
+
+
+def one_feature():
+    yield(1, base_needs())
+    for i in range(EXTRA_NEEDS):
+        yield(1, 1<<i)
+
+
+def alternating():
+    bn = base_needs()
+    yield(0, bn)
+    for i in range(max(N_FEATURES, EXTRA_NEEDS)):
+        yield(1<<i, 0)
+        yield(0, 1<<i)
+
+
+def blockers_first():
+    bn = base_needs()
+    yield(0, bn)
+    yield(1, bn)
+    for i in range(EXTRA_NEEDS):
+        yield(0, 1<<i)
+    for i in range(1, N_FEATURES):
+        yield(1<<i, 0)
+
+
+def features_first():
+    bn = base_needs()
+    yield(0, bn)
+    for i in range(N_FEATURES):
+        yield(1<<i, 0)
+    for i in range(EXTRA_NEEDS):
+        yield(0, 1<<i)
+
+
+def main():
+    w = csv.writer(sys.stdout)
+    w.writerow([
+        'strategy', 't',
+        'features', 'unblocked',
+        'interested', 'satisfiable',
+        'users', 'cumu',
+    ])
+    
+    #simulate(w, 'base (non-blocked)', nonblocked())
+    #simulate(w, 'base (one feature)', one_feature())
+    simulate(w, 'alternating', alternating())
+    simulate(w, 'blockers first', blockers_first())
+    simulate(w, 'features first', features_first())
+
 
 if __name__ == '__main__':
     main()
