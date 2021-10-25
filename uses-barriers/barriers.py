@@ -140,13 +140,13 @@ def alternating():
     needs_per_feat = EXTRA_NEEDS / N_FEATURES
     f = 0
     n = 0
-    acc = 0
+    acc = 5
     while f < N_FEATURES and n < EXTRA_NEEDS:
         yield(1<<f, 0)
         f += 1
         acc += needs_per_feat
 
-        while acc >= 1:
+        while acc >= 1 or n < 5:
             yield(0, 1<<n)
             n += 1
             acc -= 1

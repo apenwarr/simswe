@@ -20,6 +20,27 @@ rr = subset(r, t<350)
 rzb = r
 rzb$users[rzb$users == 0] = NA
 
+p0 = (
+  ggplot(data=subset(r, strategy=='alternating'), aes(x=t, y=users))
+  + geom_step(aes(y=interested), linetype=3, size=0.75, color='#444444')
+  + geom_step(aes(y=satisfiable), linetype=5, color='#888888')
+  + geom_step(color='red', size=0.75)
+#  + geom_step(data=subset(r, strategy=='blockers first'), color='purple', size=0.75)
+#  + facet_grid(strategy~.)
+#  + facet_wrap(~strategy, ncol=1)
+  + theme_minimal()
+  + theme(#panel.border=element_rect(color='#cccccc'),
+          #axis.text.y=element_blank(), axis.ticks.y=element_blank(),
+          #strip.text.x = element_blank(),
+          #strip.text.y = element_text(size=rel(1.2)),
+          #axis.text.x = element_text(angle=90, hjust=1, vjust=0.5)
+    )
+  + labs(x='Time', y='Users',
+  	title='Simulated users over time',
+  	subtitle='dotted=addressable market    dashed=unblocked users    red=active users'
+    )
+)
+
 p = (
   ggplot(data=r, aes(x=t, y=users))
   + geom_step(aes(y=interested), linetype=3, size=0.75, color='#444444')
@@ -76,8 +97,10 @@ p2 = (
 
 
 save = function() {
+	print(p0)
+	ggsave('plot0.png', width=8.7, height=3.3, dpi=75, bg='white')
 	print(p)
-	ggsave('plot1.png', dpi=75)
+	ggsave('plot1.png', width=8.7, height=6.6, dpi=75, bg='white')
 	print(pz)
-	ggsave('plot2.png', dpi=75)
+	ggsave('plot2.png', width=8.7, height=6.6, dpi=75, bg='white')
 }
