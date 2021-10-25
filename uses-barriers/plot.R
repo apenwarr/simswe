@@ -3,8 +3,8 @@ library(reshape2)
 
 r = read.csv('out.csv', header=T, sep=',')
 r$strategy = factor(r$strategy, levels=c(
-	'features first', 'alternating',
-	'blockers first', 'perfectionism')
+	'wants first', 'alternating',
+	'needs first', 'perfectionism')
 )
 
 mr = melt(r,
@@ -24,7 +24,7 @@ p0 = (
   ggplot(data=subset(r, strategy=='alternating'), aes(x=t, y=users))
   + geom_step(aes(y=interested), linetype=3, size=0.75, color='#444444')
   + geom_step(aes(y=satisfiable), linetype=5, color='#888888')
-  + geom_step(color='red', size=0.75)
+  + geom_line(color='red', size=0.75)
 #  + geom_step(data=subset(r, strategy=='blockers first'), color='purple', size=0.75)
 #  + facet_grid(strategy~.)
 #  + facet_wrap(~strategy, ncol=1)
@@ -45,7 +45,7 @@ p = (
   ggplot(data=r, aes(x=t, y=users))
   + geom_step(aes(y=interested), linetype=3, size=0.75, color='#444444')
   + geom_step(aes(y=satisfiable), linetype=5, color='#888888')
-  + geom_step(color='red', size=0.75)
+  + geom_line(color='red', size=0.75)
 #  + geom_step(data=subset(r, strategy=='blockers first'), color='purple', size=0.75)
 #  + facet_grid(strategy~.)
   + facet_wrap(~strategy, ncol=1)

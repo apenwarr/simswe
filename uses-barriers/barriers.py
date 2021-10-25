@@ -7,25 +7,24 @@ MARKET_SIZE = 10000
 GROWTH_RATE = 0.2
 ADOPTION_DELAY = 0.2
 
-PICK_FEATURES = 3
+AVG_FEATURES = 3
 N_FEATURES = 10
 
-PICK_NEEDS = 10
-N_NEEDS = 25
-EXTRA_NEEDS = N_NEEDS - PICK_NEEDS
+AVG_NEEDS = 5
+N_NEEDS = 15
 
 SIM_STEPS = 500
 
 class Person(object):
     __slots__ = ['wants', 'needs', 'aware']
 
-    def __init__(self, wants, needs):
-        self.wants = wants
-        self.needs = needs
+    def __init__(self):
+        self.wants = 0
+        self.needs = 0
         self.aware = False
     
     def interested(self, features):
-        return (self.wants & features) != 0
+        return not self.wants or ((self.wants & features) != 0)
     
     def blocked(self, unblocked):
         return (self.needs & ~unblocked) != 0
@@ -34,23 +33,26 @@ class Person(object):
         return self.interested(features) and not self.blocked(unblocked)
 
 
-def randbits(n, total):
-    o = 0
-    for _ in range(n):
-        o |= 1 << random.randint(0, total-1)
-    return o
-
-
 def simulate(w, name, strategy):
+    sys.stderr.write('simulate %r\n' % name)
+
     # for repeatability
     random.seed(1)
 
-    market = []
-    for _ in range(MARKET_SIZE):
-        need = randbits(PICK_NEEDS, N_NEEDS)
-        want = randbits(PICK_FEATURES, N_FEATURES)
-        market.append(Person(want, need))
-    
+    market = [Person() for _ in range(MARKET_SIZE)]
+
+    prob = AVG_FEATURES / N_FEATURES
+    for i in range(N_FEATURES):
+        for p in market:
+            if random.random() < prob:
+                p.wants |= 1<<i
+
+    prob = AVG_NEEDS / N_NEEDS
+    for i in range(N_NEEDS):
+        for p in market:
+            if random.random() < prob:
+                p.needs |= 1<<i
+            
     inactive = set(market)
     active = set()
     cumu = 0
@@ -102,16 +104,9 @@ def simulate(w, name, strategy):
             break
 
 
-def base_needs():
-    o = 0
-    for i in range(EXTRA_NEEDS, N_NEEDS):
-        o |= 1 << i
-    return o
-
-
 def stratgen(impl):
     features = 0
-    unblocked = base_needs()
+    unblocked = 0
     for features_added, unblocked_added in impl:
         assert not (features_added & ~((1<<N_FEATURES)-1))
         assert not (unblocked_added & ~((1<<N_NEEDS)-1))
@@ -132,47 +127,46 @@ def nonblocked():
 
 
 def one_feature():
-    for i in range(EXTRA_NEEDS):
+    for i in range(N_NEEDS):
         yield(1, 1<<i)
 
 
 def alternating():
-    needs_per_feat = EXTRA_NEEDS / N_FEATURES
+    needs_per_feat = N_NEEDS / N_FEATURES
     f = 0
     n = 0
-    acc = 5
-    while f < N_FEATURES and n < EXTRA_NEEDS:
+    acc = 0
+    while f < N_FEATURES and n < N_NEEDS:
         yield(1<<f, 0)
         f += 1
         acc += needs_per_feat
 
-        while acc >= 1 or n < 5:
+        while acc >= 1:
             yield(0, 1<<n)
             n += 1
             acc -= 1
 
 
 def perfectionism():
-    for i in range(EXTRA_NEEDS):
+    for i in range(N_NEEDS):
         yield(0, 1<<i)
     for i in range(N_FEATURES):
         yield(1<<i, 0)
 
 
 def blockers_first():
+    # at least do one feature first or it's kinda pointless
     yield(1, 0)
-    for i in range(EXTRA_NEEDS):
+    for i in range(N_NEEDS):
         yield(0, 1<<i)
     for i in range(1, N_FEATURES):
         yield(1<<i, 0)
 
 
 def features_first():
-    bn = base_needs()
-    yield(0, bn)
     for i in range(N_FEATURES):
         yield(1<<i, 0)
-    for i in range(EXTRA_NEEDS):
+    for i in range(N_NEEDS):
         yield(0, 1<<i)
 
 
@@ -188,10 +182,9 @@ def main():
     #simulate(w, 'base (non-blocked)', nonblocked())
     #simulate(w, 'base (one feature)', one_feature())
     simulate(w, 'alternating', alternating())
-    simulate(w, 'blockers first', blockers_first())
-    simulate(w, 'features first', features_first())
+    simulate(w, 'needs first', blockers_first())
+    simulate(w, 'wants first', features_first())
     simulate(w, 'perfectionism', perfectionism())
-
 
 
 if __name__ == '__main__':
